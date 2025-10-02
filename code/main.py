@@ -1,13 +1,14 @@
 # code/main.py
 import asyncio
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from fastapi import FastAPI
 import os
 import sys
 from dotenv import load_dotenv
 
 # Load .env automatically
-load_dotenv()  # looks for a .env file in the current directory
+load_dotenv()
 
 # Helper to read env variables safely
 def get_env_var(name, required=True):
@@ -22,14 +23,14 @@ def get_env_var(name, required=True):
 # Load environment variables
 API_ID = int(get_env_var("API_ID"))
 API_HASH = get_env_var("API_HASH")
-SESSION_STRING = get_env_var("SESSION_STRING")  # Your .session string
+SESSION_STRING = get_env_var("SESSION_STRING")  # string session
 TARGET_CHAT_IDS = [int(g) for g in get_env_var("TARGET_CHAT_IDS", required=False).split(",") if g]
 
 EMOJIS = ["🔥", "👏", "✨", "❤️", "😂", "👍", "😎"]
 
 # FastAPI and Telethon client
 app = FastAPI()
-client = TelegramClient(SESSION_STRING, API_ID, API_HASH)
+client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
 OWNER_ID = None  # will detect automatically on startup
 
