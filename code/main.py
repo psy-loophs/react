@@ -3,22 +3,37 @@ import asyncio
 from telethon import TelegramClient, events
 from fastapi import FastAPI
 import os
+import sys
 
-API_ID = int(os.environ.get("API_ID"))
-API_HASH = os.environ.get("API_HASH")
-SESSION = os.environ.get("SESSION")  # Your .session string or file
-OWNER_ID = int(os.environ.get("OWNER_ID"))
-TARGET_GROUPS = [int(g) for g in os.environ.get("TARGET_GROUPS", "").split(",")]  # IDs
+# Helper to read env variables safely
+def get_env_var(name, required=True):
+    value = os.environ.get(name)
+    if value is None:
+        if required:
+            print(f"❌ ERROR: Environment variable {name} is not set.")
+            sys.exit(1)
+        return None
+    return value
+
+# Load environment variables
+API_ID = int(get_env_var("API_ID"))
+API_HASH = get_env_var("API_HASH")
+SESSION_STRING = get_env_var("SESSION_STRING")  # Your .session string
+TARGET_CHAT_IDS = [int(g) for g in get_env_var("TARGET_CHAT_IDS", required=False).split(",") if g]
+
 EMOJIS = ["🔥", "👏", "✨", "❤️", "😂", "👍", "😎"]
 
+# FastAPI and Telethon client
 app = FastAPI()
-client = TelegramClient(SESSION, API_ID, API_HASH)
+client = TelegramClient(SESSION_STRING, API_ID, API_HASH)
+
+OWNER_ID = None  # Will detect automatically on startup
 
 
 async def react_to_message(event, emoji_list):
     for emoji in emoji_list:
         try:
-            # Updated: use the client method send_reaction
+            # Use Telethon client method send_reaction
             await client.send_reaction(
                 entity=event.chat_id,
                 message=event.message.id,
@@ -32,7 +47,7 @@ async def react_to_message(event, emoji_list):
     return False
 
 
-@client.on(events.NewMessage(chats=TARGET_GROUPS))
+@client.on(events.NewMessage(chats=TARGET_CHAT_IDS))
 async def handle_new_message(event):
     # Skip messages from the bot itself
     if event.sender_id == OWNER_ID:
@@ -43,9 +58,11 @@ async def handle_new_message(event):
 
 @app.on_event("startup")
 async def startup_event():
+    global OWNER_ID
     await client.start()
     me = await client.get_me()
-    print(f"✅ Telegram client started. Logged in as {me.first_name} ({me.id})")
+    OWNER_ID = me.id  # automatically detect owner
+    print(f"✅ Telegram client started. Logged in as {me.first_name} ({OWNER_ID})")
 
 
 if __name__ == "__main__":
