@@ -12,26 +12,26 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")  
 SESSION_STRING = os.getenv("SESSION_STRING")
 
-# 👇 Multiple groups/channels allowed (comma-separated in .env)
+
 TARGET_CHAT_IDS = [int(x) for x in os.getenv("TARGET_CHAT_IDS", "").split(",") if x]
 
-# 👇 Hardcoded emoji list
+
 EMOJIS = ["👍", "🔥", "❤️", "😂", "👏", "😎", "✨"]
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 OWNER_ID = None
 
-# ✅ React handler
+
 @client.on(events.NewMessage)
 async def react_handler(event):
     if event.chat_id in TARGET_CHAT_IDS:  
-        # pick one random emoji
+        
         emojis = EMOJIS.copy()
         random.shuffle(emojis)
         for emoji in emojis:
             try:
                 await event.message.react(emoji)
-                break  # stop after first successful reaction
+                break  
             except Exception as e:
                 print(f"⚠️ Failed with {emoji}, trying next... ({e})")
 
