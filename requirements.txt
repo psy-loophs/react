@@ -1,4 +1,4 @@
-fastapi
-uvicorn[standard]
-python-dotenv
-telethon
+fastapi==0.111.2
+uvicorn[standard]==0.23.2
+python-dotenv==1.0.1
+telethon>=1.31.0
