@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
+from telethon.tl.functions.messages import SendReaction as SendReactionRequest  # correct import
 
 load_dotenv()
 
@@ -27,8 +28,11 @@ async def react_handler(event):
 
         for emoji in emojis:
             try:
-                # ✅ Use reaction_add instead of SendReaction
-                await client.reaction_add(event.chat_id, event.message.id, emoji)
+                await client(SendReactionRequest(
+                    peer=event.chat_id,
+                    msg_id=event.message.id,
+                    reaction=emoji
+                ))
                 break
             except Exception as e:
                 print(f"⚠️ Failed with {emoji}, trying next... ({e})")
