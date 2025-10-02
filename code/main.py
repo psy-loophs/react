@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
+from telethon.tl import functions
 
 load_dotenv()
 
@@ -19,18 +20,15 @@ EMOJIS = ["👍", "🔥", "❤️", "😂", "👏", "😎", "✨"]
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 OWNER_ID = None
 
-# Patch send_reaction for older Telethon versions
+# Patch send_reaction for old Telethon versions
 if not hasattr(client, "send_reaction"):
     async def send_reaction(chat_id, message_id, emoji):
         try:
-            await client._client(
-                "messages.SendReaction",
-                {
-                    "peer": chat_id,
-                    "msg_id": message_id,
-                    "reaction": emoji
-                }
-            )
+            await client(functions.messages.SendReaction(
+                peer=chat_id,
+                msg_id=message_id,
+                reaction=emoji
+            ))
         except Exception as e:
             raise e
 
