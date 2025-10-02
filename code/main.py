@@ -1,7 +1,6 @@
 # code/main.py
 import asyncio
-from telethon import TelegramClient, events, types
-from telethon.tl.functions.messages import SendReaction
+from telethon import TelegramClient, events
 from fastapi import FastAPI
 import os
 
@@ -19,11 +18,12 @@ client = TelegramClient(SESSION, API_ID, API_HASH)
 async def react_to_message(event, emoji_list):
     for emoji in emoji_list:
         try:
-            await client(SendReaction(
-                peer=event.chat_id,
-                msg_id=event.message.id,
+            # Updated: use the client method send_reaction
+            await client.send_reaction(
+                entity=event.chat_id,
+                message=event.message.id,
                 reaction=emoji
-            ))
+            )
             print(f"✅ Reacted with {emoji}")
             return True
         except Exception as e:
