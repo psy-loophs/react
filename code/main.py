@@ -3,6 +3,7 @@ import asyncio
 from fastapi import FastAPI
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
+from contextlib import asynccontextmanager
 import os
 import sys
 from dotenv import load_dotenv
@@ -29,7 +30,7 @@ def get_env_var(name, required=True):
 # -------------------------------
 API_ID = int(get_env_var("API_ID"))
 API_HASH = get_env_var("API_HASH")
-SESSION_STRING = get_env_var("SESSION_STRING")  # String session
+SESSION_STRING = get_env_var("SESSION_STRING")  # string session
 TARGET_CHAT_IDS = [
     int(g) for g in get_env_var("TARGET_CHAT_IDS", required=False).split(",") if g
 ]
@@ -40,10 +41,23 @@ EMOJIS = ["🔥", "👏", "✨", "❤️", "😂", "👍", "😎"]
 # -------------------------------
 # FastAPI and Telethon Client
 # -------------------------------
-app = FastAPI()
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+OWNER_ID = None  # Will detect automatically
 
-OWNER_ID = None  # Will be detected automatically
+# -------------------------------
+# FastAPI Lifespan context
+# -------------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global OWNER_ID
+    await client.start()
+    me = await client.get_me()
+    OWNER_ID = me.id
+    print(f"✅ Telegram client started. Logged in as {me.first_name} ({OWNER_ID})")
+    yield
+    await client.disconnect()
+
+app = FastAPI(lifespan=lifespan)
 
 # -------------------------------
 # Reaction function
@@ -73,19 +87,9 @@ async def handle_new_message(event):
     await react_to_message(event, EMOJIS)
 
 # -------------------------------
-# FastAPI startup event
-# -------------------------------
-@app.on_event("startup")
-async def startup_event():
-    global OWNER_ID
-    await client.start()
-    me = await client.get_me()
-    OWNER_ID = me.id
-    print(f"✅ Telegram client started. Logged in as {me.first_name} ({OWNER_ID})")
-
-# -------------------------------
 # Run with python code/main.py
 # -------------------------------
 if __name__ == "__main__":
     import uvicorn
+    # Pass the app object directly to avoid "import string" warnings
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
