@@ -1,16 +1,20 @@
 # code/main.py
 import asyncio
+from fastapi import FastAPI
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from fastapi import FastAPI
 import os
 import sys
 from dotenv import load_dotenv
 
+# -------------------------------
 # Load .env automatically
+# -------------------------------
 load_dotenv()
 
-# Helper to read env variables safely
+# -------------------------------
+# Helper to read environment variables
+# -------------------------------
 def get_env_var(name, required=True):
     value = os.environ.get(name)
     if value is None:
@@ -20,21 +24,30 @@ def get_env_var(name, required=True):
         return None
     return value
 
-# Load environment variables
+# -------------------------------
+# Environment Variables
+# -------------------------------
 API_ID = int(get_env_var("API_ID"))
 API_HASH = get_env_var("API_HASH")
-SESSION_STRING = get_env_var("SESSION_STRING")  # string session
-TARGET_CHAT_IDS = [int(g) for g in get_env_var("TARGET_CHAT_IDS", required=False).split(",") if g]
+SESSION_STRING = get_env_var("SESSION_STRING")  # String session
+TARGET_CHAT_IDS = [
+    int(g) for g in get_env_var("TARGET_CHAT_IDS", required=False).split(",") if g
+]
 
+# Default emoji list
 EMOJIS = ["🔥", "👏", "✨", "❤️", "😂", "👍", "😎"]
 
-# FastAPI and Telethon client
+# -------------------------------
+# FastAPI and Telethon Client
+# -------------------------------
 app = FastAPI()
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
-OWNER_ID = None  # will detect automatically on startup
+OWNER_ID = None  # Will be detected automatically
 
-
+# -------------------------------
+# Reaction function
+# -------------------------------
 async def react_to_message(event, emoji_list):
     for emoji in emoji_list:
         try:
@@ -50,14 +63,18 @@ async def react_to_message(event, emoji_list):
     print("❌ Could not react to this message with any emoji.")
     return False
 
-
+# -------------------------------
+# Handle new messages
+# -------------------------------
 @client.on(events.NewMessage(chats=TARGET_CHAT_IDS))
 async def handle_new_message(event):
     if event.sender_id == OWNER_ID:
         return
     await react_to_message(event, EMOJIS)
 
-
+# -------------------------------
+# FastAPI startup event
+# -------------------------------
 @app.on_event("startup")
 async def startup_event():
     global OWNER_ID
@@ -66,7 +83,9 @@ async def startup_event():
     OWNER_ID = me.id
     print(f"✅ Telegram client started. Logged in as {me.first_name} ({OWNER_ID})")
 
-
+# -------------------------------
+# Run with python code/main.py
+# -------------------------------
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("code.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
