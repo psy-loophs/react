@@ -4,6 +4,10 @@ from telethon import TelegramClient, events
 from fastapi import FastAPI
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load .env automatically
+load_dotenv()  # looks for a .env file in the current directory
 
 # Helper to read env variables safely
 def get_env_var(name, required=True):
@@ -27,13 +31,12 @@ EMOJIS = ["🔥", "👏", "✨", "❤️", "😂", "👍", "😎"]
 app = FastAPI()
 client = TelegramClient(SESSION_STRING, API_ID, API_HASH)
 
-OWNER_ID = None  # Will detect automatically on startup
+OWNER_ID = None  # will detect automatically on startup
 
 
 async def react_to_message(event, emoji_list):
     for emoji in emoji_list:
         try:
-            # Use Telethon client method send_reaction
             await client.send_reaction(
                 entity=event.chat_id,
                 message=event.message.id,
@@ -49,10 +52,8 @@ async def react_to_message(event, emoji_list):
 
 @client.on(events.NewMessage(chats=TARGET_CHAT_IDS))
 async def handle_new_message(event):
-    # Skip messages from the bot itself
     if event.sender_id == OWNER_ID:
         return
-
     await react_to_message(event, EMOJIS)
 
 
@@ -61,7 +62,7 @@ async def startup_event():
     global OWNER_ID
     await client.start()
     me = await client.get_me()
-    OWNER_ID = me.id  # automatically detect owner
+    OWNER_ID = me.id
     print(f"✅ Telegram client started. Logged in as {me.first_name} ({OWNER_ID})")
 
 
