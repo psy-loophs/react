@@ -5,8 +5,6 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from telethon.tl.types import InputPeerChannel
-from telethon.tl.functions.messages import SendReaction as _SendReaction  # will fallback if exists
 
 load_dotenv()
 
@@ -21,11 +19,10 @@ EMOJIS = ["👍", "🔥", "❤️", "😂", "👏", "😎", "✨"]
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 OWNER_ID = None
 
-# Patch send_reaction if it doesn't exist
+# Patch send_reaction for older Telethon versions
 if not hasattr(client, "send_reaction"):
     async def send_reaction(chat_id, message_id, emoji):
         try:
-            # Dynamically call SendReaction without import issues
             await client._client(
                 "messages.SendReaction",
                 {
@@ -43,7 +40,7 @@ if not hasattr(client, "send_reaction"):
 async def react_handler(event):
     if event.chat_id in TARGET_CHAT_IDS:  
         emojis = EMOJIS.copy()
-        random.shuffle(emojis)  # random order to pick a usable emoji
+        random.shuffle(emojis)
 
         for emoji in emojis:
             try:
