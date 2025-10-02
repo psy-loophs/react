@@ -1,95 +1,74 @@
-# code/main.py
-import asyncio
+import os
+import random
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from contextlib import asynccontextmanager
-import os
-import sys
-from dotenv import load_dotenv
+from telethon.tl.functions.messages import SendReaction  # fixed import
 
-# -------------------------------
-# Load .env automatically
-# -------------------------------
 load_dotenv()
 
-# -------------------------------
-# Helper to read environment variables
-# -------------------------------
-def get_env_var(name, required=True):
-    value = os.environ.get(name)
-    if value is None:
-        if required:
-            print(f"❌ ERROR: Environment variable {name} is not set.")
-            sys.exit(1)
-        return None
-    return value
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")  
+SESSION_STRING = os.getenv("SESSION_STRING")
 
-# -------------------------------
-# Environment Variables
-# -------------------------------
-API_ID = int(get_env_var("API_ID"))
-API_HASH = get_env_var("API_HASH")
-SESSION_STRING = get_env_var("SESSION_STRING")  # string session
-TARGET_CHAT_IDS = [
-    int(g) for g in get_env_var("TARGET_CHAT_IDS", required=False).split(",") if g
-]
+TARGET_CHAT_IDS = [int(x) for x in os.getenv("TARGET_CHAT_IDS", "").split(",") if x]
 
-# Default emoji list
-EMOJIS = ["🔥", "👏", "✨", "❤️", "😂", "👍", "😎"]
+EMOJIS = ["👍", "🔥", "❤️", "😂", "👏", "😎", "✨"]
 
-# -------------------------------
-# FastAPI and Telethon Client
-# -------------------------------
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-OWNER_ID = None  # Will detect automatically
+OWNER_ID = None
 
-# -------------------------------
-# FastAPI Lifespan context
-# -------------------------------
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+@client.on(events.NewMessage)
+async def react_handler(event):
+    if event.chat_id in TARGET_CHAT_IDS:  
+        emojis = EMOJIS.copy()
+        random.shuffle(emojis)  # random order to pick a usable emoji
+
+        for emoji in emojis:
+            try:
+                await client(SendReaction(
+                    peer=event.chat_id,
+                    msg_id=event.message.id,
+                    reaction=emoji
+                ))
+                # ✅ reacted successfully, stop here
+                break
+            except Exception as e:
+                # Only try next if this emoji is restricted
+                print(f"⚠️ Failed with {emoji}, trying next... ({e})")
+        else:
+            # All emojis failed
+            print("❌ Could not react to this message with any emoji.")
+
+async def init_owner():
     global OWNER_ID
-    await client.start()
     me = await client.get_me()
     OWNER_ID = me.id
-    print(f"✅ Telegram client started. Logged in as {me.first_name} ({OWNER_ID})")
+    print(f"✅ Detected owner ID: {OWNER_ID}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await client.start()
+    await init_owner()
+    print("✅ Telegram client started and owner detected.")
     yield
     await client.disconnect()
 
 app = FastAPI(lifespan=lifespan)
 
-# -------------------------------
-# Reaction function
-# -------------------------------
-async def react_to_message(event, emoji_list):
-    for emoji in emoji_list:
-        try:
-            await client.send_reaction(
-                entity=event.chat_id,
-                message=event.message.id,
-                reaction=emoji
-            )
-            print(f"✅ Reacted with {emoji}")
-            return True
-        except Exception as e:
-            print(f"⚠️ Failed with {emoji}, trying next... {e}")
-    print("❌ Could not react to this message with any emoji.")
-    return False
+@app.get("/favicon.ico")
+@app.head("/favicon.ico")
+async def favicon():
+    return b"", 204
 
-# -------------------------------
-# Handle new messages
-# -------------------------------
-@client.on(events.NewMessage(chats=TARGET_CHAT_IDS))
-async def handle_new_message(event):
-    if event.sender_id == OWNER_ID:
-        return
-    await react_to_message(event, EMOJIS)
+@app.get("/")
+@app.head("/")
+async def home():
+    return {"status": "running"}
 
-# -------------------------------
-# Run with python code/main.py
-# -------------------------------
 if __name__ == "__main__":
     import uvicorn
-    # Pass the app object directly to avoid "import string" warnings
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
