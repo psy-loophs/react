@@ -1,81 +1,51 @@
 import os
 import random
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, functions, types
 from telethon.sessions import StringSession
-from telethon.tl import functions
 
+# Load .env variables
 load_dotenv()
 
 API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")  
+API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("SESSION_STRING")
+TARGET_CHAT_IDS = [int(x) for x in os.getenv("TARGET_CHAT_IDS").split(",")]
+BIG_REACTION = os.getenv("BIG_REACTION", "False").lower() == "true"
+ADD_TO_RECENT = os.getenv("ADD_TO_RECENT", "True").lower() == "true"
 
-TARGET_CHAT_IDS = [int(x) for x in os.getenv("TARGET_CHAT_IDS", "").split(",") if x]
+# Emoji list (keep in code)
+REACTION_EMOJIS = [
+    "👍", "❤️", "😂", "😮", "😢", "😡", "😱", "👏", "🔥", "🎉",
+    "😎", "🐳", "👾", "💯", "🤯", "💖", "💥", "🥳", "😏", "😍",
+    "🙏", "💩", "💫"
+]
 
-EMOJIS = ["👍", "🔥", "❤️", "😂", "👏", "😎", "✨"]
-
+# Initialize client
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-OWNER_ID = None
 
-# Patch send_reaction for old Telethon versions
-if not hasattr(client, "send_reaction"):
-    async def send_reaction(chat_id, message_id, emoji):
+@client.on(events.NewMessage(chats=TARGET_CHAT_IDS))
+async def react_to_messages(event):
+    emojis = REACTION_EMOJIS.copy()
+    random.shuffle(emojis)
+
+    for emoji in emojis:
         try:
-            await client(functions.messages.SendReaction(
-                peer=chat_id,
-                msg_id=message_id,
-                reaction=emoji
+            await client(functions.messages.SendReactionRequest(
+                peer=event.chat_id,
+                msg_id=event.id,
+                reaction=[types.ReactionEmoji(emoticon=emoji)],
+                big=BIG_REACTION,
+                add_to_recent=ADD_TO_RECENT
             ))
+            print(f"✅ Reacted with {emoji} to message {event.id} in chat {event.chat_id}")
+            break
         except Exception as e:
-            raise e
-
-    setattr(client, "send_reaction", send_reaction)
-
-@client.on(events.NewMessage)
-async def react_handler(event):
-    if event.chat_id in TARGET_CHAT_IDS:  
-        emojis = EMOJIS.copy()
-        random.shuffle(emojis)
-
-        for emoji in emojis:
-            try:
-                await client.send_reaction(event.chat_id, event.message.id, emoji)
-                break
-            except Exception as e:
-                print(f"⚠️ Failed with {emoji}, trying next... ({e})")
-        else:
-            print("❌ Could not react to this message with any emoji.")
-
-async def init_owner():
-    global OWNER_ID
-    me = await client.get_me()
-    OWNER_ID = me.id
-    print(f"✅ Detected owner ID: {OWNER_ID}")
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await client.start()
-    await init_owner()
-    print("✅ Telegram client started and owner detected.")
-    yield
-    await client.disconnect()
-
-app = FastAPI(lifespan=lifespan)
-
-@app.get("/favicon.ico")
-@app.head("/favicon.ico")
-async def favicon():
-    return b"", 204
-
-@app.get("/")
-@app.head("/")
-async def home():
-    return {"status": "running"}
+            print(f"⚠️ Emoji {emoji} failed in chat {event.chat_id}: {e}")
+    else:
+        print(f"❌ No valid emoji could be used in chat {event.chat_id} for message {event.id}")
 
 if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
+    client.start()
+    print("🚀 Userbot running... reacting randomly in target groups.")
+    client.run_until_disconnected()
