@@ -1,15 +1,15 @@
 from fastapi import FastAPI
 import asyncio
-from userbot import start_bot
+from userbot import start_bot  # your bot logic async function
 
 app = FastAPI()
 
-# Start bot in background on startup
+# Start bot in background (non-blocking)
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(start_bot())
 
-# Simple heartbeat endpoint for Render
+# Heartbeat endpoint — Render sees this immediately
 @app.get("/")
 async def root():
-    return {"status": "Bot is running"}
+    return {"status": "Bot running"}
