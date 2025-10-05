@@ -1,5 +1,10 @@
 # 🚀 Telegram Auto react Userbot (Telethon)
 
+A simple Telegram userbot built with Telethon that automatically reacts to all new messages — including text, stickers, GIFs, media, files, and albums — in specified channels or groups using predefined emojis.
+The bot runs automatically as soon as it is self-hosted or deployed, without requiring any manual commands.
+It also works in private chats — if you add one or more user IDs to the environment variable, the bot will automatically react to their messages in PMs.
+You can include multiple IDs separated by commas to make it react in multiple channels, groups, or individual chats simultaneously.
+
 
 
 ## 🛠️ Setup
